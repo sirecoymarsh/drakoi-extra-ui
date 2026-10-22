@@ -10,7 +10,7 @@ static void cdart_preferences(void){WCHAR path[MAX_PATH];UINT n;if(cdart_prefere
 static void cdart_selectBackground(int n){WCHAR path[MAX_PATH],value[8];BOOL saved;if(n<0||n>=3)return;cdart_preferencesLoaded=TRUE;cdart_background=n;cdart_picker=FALSE;cdart_settingsPath(path);_snwprintf_s(value,8,_TRUNCATE,L"%d",n);saved=WritePrivateProfileStringW(L"Display",L"Background",value,path);logline("CD BACKGROUND %d saved=%d\r\n",n,saved);}
 static void cdart_selectMenuImage(int n){WCHAR path[MAX_PATH],value[8];BOOL saved;if(n<0||n>=3)return;cdart_preferences();cdart_menuImage=n;cdart_settingsPath(path);_snwprintf_s(value,8,_TRUNCATE,L"%d",n);saved=WritePrivateProfileStringW(L"Display",L"MenuImage",value,path);logline("CD MENU IMAGE %d saved=%d\r\n",n,saved);}
 static int cdart_pickerHit(int x,int y){int n;if(x<502||x>=746||y<124||y>=238)return -1;n=(y-124)/38;return n<3&&(y-124)%38<34?n:-1;}
-static void cdart_pickerRender(HDC dc){int i;RECT r={498,120,750,242};ex07_box(dc,r,RGB(12,19,27));for(i=0;i<3;i++){r=(RECT){502,124+i*38,746,158+i*38};ex07_button(dc,r,cdart_names[i],cdart_background==i);}}
+static void cdart_pickerRender(HDC dc){int i;RECT r={498,120,750,242};ex07_panel(dc,r,FALSE);for(i=0;i<3;i++){r=(RECT){502,124+i*38,746,158+i*38};ex07_button(dc,r,cdart_names[i],cdart_background==i);}}
 static BOOL cdart_load(int n){
  WCHAR path[MAX_PATH];BITMAP b;static const WCHAR*files[]={L"cover.bmp",L"protagonists.bmp",L"classroom.bmp"};
  if(n<0||n>2)return FALSE;
@@ -54,13 +54,13 @@ static void cdart_key(WPARAM key){
 }
 static void cdart_render(HWND w,HDC dest){
  RECT r,client;WCHAR caption[160];int i;const WCHAR*buttons[]={L"돌아가기",L"화면 맞춤",L"책자 표지",L"주인공",L"교실 표지",ex07_paused?L"계속 재생":L"일시정지"};
- GetClientRect(w,&client);r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(19,30,43));
- r=(RECT){44,24,756,64};_snwprintf_s(caption,160,_TRUNCATE,L"드라마 CD · %s",cdart_names[cdart_view]);ex07_text(ex07_dc,caption,r,ex07_head,RGB(244,232,205),DT_SINGLELINE|DT_VCENTER);
- r=(RECT){44,80,756,500};ex07_box(ex07_dc,r,RGB(12,19,27));SaveDC(ex07_dc);IntersectClipRect(ex07_dc,r.left,r.top,r.right,r.bottom);
+ GetClientRect(w,&client);ex07_skyDraw();
+ r=(RECT){44,20,756,66};_snwprintf_s(caption,160,_TRUNCATE,L"드라마 CD · %s",cdart_names[cdart_view]);ex07_logoText(ex07_dc,caption,r,ex07_head);
+ r=(RECT){40,76,760,504};ex07_panel(ex07_dc,r,TRUE);r=(RECT){44,80,756,500};SaveDC(ex07_dc);IntersectClipRect(ex07_dc,r.left,r.top,r.right,r.bottom);
  if(cdart_load(cdart_view))cdart_blit(ex07_dc,cdart_view,(int)cdart_x,(int)cdart_y,(int)(cdart_width[cdart_view]*cdart_scale),(int)(cdart_height[cdart_view]*cdart_scale),255);
  else ex07_text(ex07_dc,L"이미지를 읽지 못했습니다.",r,ex07_font,RGB(255,210,190),DT_CENTER|DT_VCENTER|DT_SINGLELINE);RestoreDC(ex07_dc,-1);
  _snwprintf_s(caption,160,_TRUNCATE,L"%d%% · 휠: 확대·축소 · 드래그: 이동 · 0: 화면 맞춤 · Esc: 돌아가기",(int)(cdart_scale*100));
- r=(RECT){44,512,756,540};ex07_text(ex07_dc,caption,r,ex07_small,RGB(182,199,211),DT_CENTER|DT_SINGLELINE|DT_VCENTER);
+ r=(RECT){44,512,756,540};ex07_text(ex07_dc,caption,r,ex07_small,RGB(60,104,132),DT_CENTER|DT_SINGLELINE|DT_VCENTER);
  for(i=0;i<6;i++){r=(RECT){44+121*i,554,151+121*i,590};ex07_button(ex07_dc,r,buttons[i],(i>=2&&i<=4&&cdart_view==i-2)||(i==5&&ex07_paused));}
  SetStretchBltMode(dest,HALFTONE);StretchBlt(dest,0,0,client.right,client.bottom,ex07_dc,0,0,800,600,SRCCOPY);
 }

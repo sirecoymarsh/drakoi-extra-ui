@@ -156,11 +156,8 @@ static void flow_click(int x,int y){
 static int flow_textLeft(const FLOW_NODE*n){return n->x+6+(n->kind>=3?48:64)+8;}
 static int flow_previewTarget(void){return ex07_hover>=100&&ex07_hover<100+FLOW_COUNT?ex07_hover-100:flow_pick;}
 static void flow_backdrop(LPCWSTR line){
- RECT r;HDC src;HGDIOBJ old;
- ex07_skyBuild();
- src=ex07_sky?CreateCompatibleDC(ex07_dc):NULL;
- if(src){old=SelectObject(src,ex07_sky);BitBlt(ex07_dc,0,0,800,600,src,0,0,SRCCOPY);SelectObject(src,old);DeleteDC(src);}
- else{r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(226,240,247));}
+ RECT r;
+ ex07_skyDraw();
  r=(RECT){0,14,800,58};ex07_logoText(ex07_dc,L"플로우 차트",r,ex07_head);
  r=(RECT){0,62,800,88};ex07_text(ex07_dc,line,r,ex07_note,RGB(60,104,132),DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
 }
@@ -244,7 +241,7 @@ static void flow_sceneRender(HWND window,HDC dest){
  GetClientRect(window,&client);
  if(n->detail[0])_snwprintf_s(line,200,_TRUNCATE,L"%s · %s",n->title,n->detail);else _snwprintf_s(line,200,_TRUNCATE,L"%s",n->title);
  flow_backdrop(line);
- r=(RECT){24,94,776,518};ex07_plate(ex07_dc,r,12,RGB(150,232,250),RGB(40,140,176),RGB(28,46,60),RGB(14,24,34));
+ r=(RECT){24,94,776,518};ex07_panel(ex07_dc,r,TRUE);
  SaveDC(ex07_dc);IntersectClipRect(ex07_dc,FLOW_LEFT,FLOW_TOP,FLOW_RIGHT,FLOW_BOTTOM);
  if(flow_scene)gal_blit(ex07_dc,flow_scene,(int)flow_sceneX,(int)flow_sceneY,(int)(flow_sceneW*flow_sceneScale),(int)(flow_sceneH*flow_sceneScale));
  else{r=(RECT){FLOW_LEFT,FLOW_TOP,FLOW_RIGHT,FLOW_BOTTOM};ex07_text(ex07_dc,L"장면 그림을 읽지 못했습니다.",r,ex07_font,RGB(255,210,190),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
@@ -257,7 +254,7 @@ static void flow_render(HWND window,HDC dest){
  RECT r,client;XFORM transform;HPEN pen;HGDIOBJ oldPen;int i;WCHAR line[200];
  if(flow_view>=0){flow_sceneRender(window,dest);return;}
  GetClientRect(window,&client);flow_backdrop(L"본편 주요 선택지 네 곳과 엔딩 네 종류의 연결");
- r=(RECT){24,94,776,518};ex07_plate(ex07_dc,r,12,RGB(150,232,250),RGB(40,140,176),RGB(250,253,254),RGB(222,238,246));
+ r=(RECT){24,94,776,518};ex07_panel(ex07_dc,r,FALSE);
  SaveDC(ex07_dc);IntersectClipRect(ex07_dc,FLOW_LEFT,FLOW_TOP,FLOW_RIGHT,FLOW_BOTTOM);
  SetGraphicsMode(ex07_dc,GM_ADVANCED);ZeroMemory(&transform,sizeof(transform));transform.eM11=transform.eM22=(FLOAT)flow_scale;transform.eDx=(FLOAT)flow_x;transform.eDy=(FLOAT)flow_y;SetWorldTransform(ex07_dc,&transform);
  flow_legend();

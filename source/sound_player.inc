@@ -9,7 +9,8 @@ static void gal_blit(HDC dc,HBITMAP bm,int x,int y,int width,int height);
 static HBITMAP sm_art;
 static int sm_artWidth,sm_artHeight;
 static BOOL sm_artTried;
-static void sm_cleanup(void){if(sm_art)DeleteObject(sm_art);sm_art=NULL;sm_artTried=FALSE;sm_artWidth=sm_artHeight=0;}
+static HBITMAP sm_paper;
+static void sm_cleanup(void){if(sm_art)DeleteObject(sm_art);sm_art=NULL;sm_artTried=FALSE;sm_artWidth=sm_artHeight=0;if(sm_paper)DeleteObject(sm_paper);sm_paper=NULL;}
 /* Filter premultiplied pixels once at display size; AlphaBlend alone uses
  * nearest-neighbour reduction and loses the fine printed outlines. */
 static void sm_artScale(void){
@@ -36,9 +37,15 @@ static void sm_artRender(HDC dc){
     gal_blit(dc,sm_art,608+(148-width)/2,1+(132-height)/2,width,height);
 }
 static void sm_button(HDC dc,RECT r,LPCWSTR label,BOOL active){
-    HBRUSH border;ex07_box(dc,r,active?RGB(170,59,102):RGB(255,251,253));
-    border=CreateSolidBrush(active?RGB(170,59,102):RGB(222,202,212));FrameRect(dc,&r,border);DeleteObject(border);
-    ex07_text(dc,label,r,ex07_small,active?RGB(255,250,253):RGB(83,66,80),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    ex07_plate(dc,r,12,active?RGB(246,160,192):RGB(222,210,244),active?RGB(160,40,90):RGB(176,156,218),active?RGB(232,104,148):RGB(255,255,255),active?RGB(186,58,104):RGB(246,242,252));
+    ex07_text(dc,label,r,ex07_small,active?RGB(255,250,253):RGB(83,66,100),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+}
+/* The booklet's heart wand, as the playback position marker. */
+static void sm_heart(HDC dc,int x,int y,COLORREF color){
+    HBRUSH br=CreateSolidBrush(color);HPEN pen=CreatePen(PS_SOLID,1,color);HGDIOBJ oldBrush=SelectObject(dc,br),oldPen=SelectObject(dc,pen);POINT tip[3];
+    tip[0].x=x-6;tip[0].y=y-1;tip[1].x=x+6;tip[1].y=y-1;tip[2].x=x;tip[2].y=y+7;
+    Ellipse(dc,x-7,y-6,x+1,y+2);Ellipse(dc,x-1,y-6,x+7,y+2);Polygon(dc,tip,3);
+    SelectObject(dc,oldPen);SelectObject(dc,oldBrush);DeleteObject(pen);DeleteObject(br);
 }
 static int sm_hit(int x,int y){
     int col,row,n;if(y<138||y>=399)return -1;
@@ -62,39 +69,45 @@ static void sm_render(HWND w,HDC dest){
     RECT r,client;WCHAR text[256],source[256],korean[256];int i;LPCWSTR cue=NULL;
     const EX07_TRACK*t=ex07_track>=0?&sm_tracks[ex07_track]:NULL;
     GetClientRect(w,&client);
-    r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(249,246,244));
+    /* Booklet paper: lavender halftone with pink blooms, after the CD booklet's lyric pages. */
+    if(!sm_paper)sm_paper=ex07_halftone(RGB(250,244,252),RGB(255,251,253),RGB(238,230,250),RGB(250,198,218),RGB(206,188,238));
+    ex07_backdrop(sm_paper,RGB(249,246,244));
     r=(RECT){0,0,800,5};ex07_box(ex07_dc,r,RGB(182,67,112));
-    r=(RECT){44,124,600,126};ex07_box(ex07_dc,r,RGB(170,199,207));
+    r=(RECT){44,124,600,126};ex07_box(ex07_dc,r,RGB(214,204,236));
     r=(RECT){44,124,144,126};ex07_box(ex07_dc,r,RGB(202,106,145));
-    r=(RECT){44,14,600,42};ex07_text(ex07_dc,L"DANCES & DRAGONS!",r,ex07_small,RGB(170,59,102),DT_SINGLELINE|DT_VCENTER);
-    r=(RECT){44,43,600,81};ex07_text(ex07_dc,L"사운드 모드",r,ex07_head,RGB(65,54,67),DT_SINGLELINE|DT_VCENTER);
+    r=(RECT){44,12,600,38};ex07_text(ex07_dc,L"DANCES & DRAGONS!",r,ex07_small,RGB(170,59,102),DT_SINGLELINE|DT_VCENTER);
+    r=(RECT){48,38,600,84};ex07_logoTextAt(ex07_dc,L"사운드 모드",r,ex07_head,DT_LEFT);
+    r=(RECT){600,4,758,134};ex07_plate(ex07_dc,r,14,RGB(250,190,212),RGB(214,98,140),RGB(255,255,255),RGB(253,240,246));
     sm_artRender(ex07_dc);
     if(t)_snwprintf_s(text,256,_TRUNCATE,L"%s  ·  %s",t->title,ex07_audio?(ex07_paused?L"일시정지":sm_ended?L"재생 완료":L"재생 중"):L"정지");
     else wcscpy_s(text,256,L"듣고 싶은 곡을 선택해 주세요.");
-    r=(RECT){46,86,600,118};ex07_text(ex07_dc,text,r,ex07_small,RGB(105,109,117),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
+    r=(RECT){46,86,600,118};ex07_text(ex07_dc,text,r,ex07_small,RGB(98,84,120),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
     for(i=0;i<SM_COUNT;i++){
-        int col=i/9,row=i%9,x=44+367*col;DWORD duration=sm_tracks[i].duration;
-        r=(RECT){x,138+row*29,x+345,164+row*29};ex07_box(ex07_dc,r,i==ex07_track?RGB(244,213,227):i==ex07_hover?RGB(232,239,241):RGB(255,253,253));
-        {RECT mark=r;mark.right=mark.left+3;ex07_box(ex07_dc,mark,i==ex07_track?RGB(180,66,111):RGB(186,207,213));}
-        r.left+=9;r.right-=49;
-        _snwprintf_s(text,256,_TRUNCATE,L"%02d. %s",i+1,sm_tracks[i].title);ex07_text(ex07_dc,text,r,ex07_small,i==ex07_track?RGB(126,36,77):RGB(67,62,72),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
-        r.left=x+294;r.right=x+337;_snwprintf_s(text,256,_TRUNCATE,L"%lu:%02lu",duration/60000,(duration/1000)%60);ex07_text(ex07_dc,text,r,ex07_small,RGB(103,124,132),DT_SINGLELINE|DT_RIGHT|DT_VCENTER);
+        int col=i/9,row=i%9,x=44+367*col;DWORD duration=sm_tracks[i].duration;BOOL current=i==ex07_track;RECT badge;
+        r=(RECT){x,138+row*29,x+345,164+row*29};
+        if(current)ex07_plate(ex07_dc,r,9,RGB(246,160,192),RGB(196,64,112),RGB(255,244,248),RGB(250,216,230));
+        else if(i==ex07_hover)ex07_plate(ex07_dc,r,9,RGB(206,188,242),RGB(150,122,210),RGB(252,250,255),RGB(238,232,252));
+        else ex07_plate(ex07_dc,r,9,RGB(232,224,246),RGB(204,192,230),RGB(255,255,255),RGB(250,247,253));
+        badge=(RECT){x+6,r.top+4,x+34,r.bottom-4};ex07_plate(ex07_dc,badge,9,current?RGB(240,140,176):RGB(206,190,238),current?RGB(170,40,90):RGB(132,106,196),current?RGB(232,104,148):RGB(190,172,232),current?RGB(196,58,104):RGB(156,132,214));
+        _snwprintf_s(text,256,_TRUNCATE,L"%02d",i+1);ex07_text(ex07_dc,text,badge,ex07_tiny,RGB(255,255,255),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+        r.left=x+42;r.right=x+296;ex07_text(ex07_dc,sm_tracks[i].title,r,ex07_small,current?RGB(140,30,76):RGB(72,56,92),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
+        r.left=x+294;r.right=x+337;_snwprintf_s(text,256,_TRUNCATE,L"%lu:%02lu",duration/60000,(duration/1000)%60);ex07_text(ex07_dc,text,r,ex07_small,RGB(124,110,148),DT_SINGLELINE|DT_RIGHT|DT_VCENTER);
     }
-    r=(RECT){44,408,756,503};ex07_box(ex07_dc,r,RGB(255,252,253));r.bottom=409;ex07_box(ex07_dc,r,RGB(231,207,218));
+    r=(RECT){44,408,756,503};ex07_plate(ex07_dc,r,14,RGB(214,200,240),RGB(170,148,214),RGB(255,253,255),RGB(244,238,252));
     if(t&&ex07_audio&&shown)cue=vocal_cue(sm_fingerprint[ex07_track],(unsigned)((ULONGLONG)ex07_position*44100/1000));
     if(cue&&vocalSplit(cue,source,korean)){
-        r=(RECT){52,412,748,446};ex07_text(ex07_dc,source,r,ex07_jp,RGB(95,105,114),DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
-        r=(RECT){52,447,748,489};ex07_text(ex07_dc,korean,r,ex07_font,RGB(145,48,88),DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
+        r=(RECT){52,412,748,446};ex07_text(ex07_dc,source,r,ex07_jp,RGB(98,88,124),DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
+        r=(RECT){52,447,748,489};ex07_text(ex07_dc,korean,r,ex07_font,RGB(170,40,90),DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
     }else if(t&&sm_original[ex07_track]){
-        r=(RECT){52,410,748,454};ex07_text(ex07_dc,sm_original[ex07_track],r,ex07_jp,RGB(95,105,114),DT_CENTER|DT_WORDBREAK);
-        r=(RECT){52,458,748,503};ex07_text(ex07_dc,ex07_track==15?L"혹은 영웅은 어떻게 사랑하는 용을 살육하고, 그 이야기를 완성했는가":t->title,r,ex07_small,RGB(145,48,88),DT_CENTER|DT_WORDBREAK);
+        r=(RECT){52,410,748,454};ex07_text(ex07_dc,sm_original[ex07_track],r,ex07_jp,RGB(98,88,124),DT_CENTER|DT_WORDBREAK);
+        r=(RECT){52,458,748,503};ex07_text(ex07_dc,ex07_track==15?L"혹은 영웅은 어떻게 사랑하는 용을 살육하고, 그 이야기를 완성했는가":t->title,r,ex07_small,RGB(170,40,90),DT_CENTER|DT_WORDBREAK);
     }else{
         LPCWSTR hint=t?(ex07_audio?(shown?sm_kind[ex07_track]:L"가사 숨김 · F8"):L"재생 버튼을 누르면 처음부터 듣습니다."):L"보컬 · 배경음 · 반주 · 짧은 버전";
-        r=(RECT){52,422,748,475};ex07_text(ex07_dc,hint,r,ex07_small,RGB(114,112,125),DT_SINGLELINE|DT_CENTER|DT_VCENTER);
+        r=(RECT){52,422,748,475};ex07_text(ex07_dc,hint,r,ex07_small,RGB(120,108,140),DT_SINGLELINE|DT_CENTER|DT_VCENTER);
     }
-    r=(RECT){60,516,740,520};ex07_box(ex07_dc,r,RGB(212,216,220));
-    if(t){DWORD duration=t->duration;r.right=60+(LONG)((ULONGLONG)min(ex07_position,duration)*680/max(duration,1));ex07_box(ex07_dc,r,RGB(185,73,117));
-        _snwprintf_s(text,256,_TRUNCATE,L"%02lu:%02lu / %02lu:%02lu",ex07_position/60000,(ex07_position/1000)%60,duration/60000,(duration/1000)%60);r=(RECT){60,526,740,549};ex07_text(ex07_dc,text,r,ex07_small,RGB(105,109,117),DT_CENTER|DT_SINGLELINE);
+    r=(RECT){60,516,740,520};ex07_box(ex07_dc,r,RGB(222,214,238));
+    if(t){DWORD duration=t->duration;r.right=60+(LONG)((ULONGLONG)min(ex07_position,duration)*680/max(duration,1));ex07_box(ex07_dc,r,RGB(214,74,124));sm_heart(ex07_dc,r.right,518,RGB(226,84,136));
+        _snwprintf_s(text,256,_TRUNCATE,L"%02lu:%02lu / %02lu:%02lu",ex07_position/60000,(ex07_position/1000)%60,duration/60000,(duration/1000)%60);r=(RECT){60,526,740,549};ex07_text(ex07_dc,text,r,ex07_small,RGB(98,84,120),DT_CENTER|DT_SINGLELINE);
     }
     r=(RECT){44,554,148,590};sm_button(ex07_dc,r,L"타이틀로",FALSE);
     r=(RECT){160,554,274,590};sm_button(ex07_dc,r,L"엑스트라로",FALSE);

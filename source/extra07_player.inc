@@ -162,33 +162,54 @@ static void ex07_fin(HDC dc,int x,int y,int height,BOOL hot){
     for(i=0;i<11;i++){p[i].x=x+fx[i]*5/9;p[i].y=y+half+(fy[i]*height/44-half)*7/10;}
     Polygon(dc,p,11);SelectObject(dc,oldBrush);DeleteObject(br);SelectObject(dc,oldPen);DeleteObject(pen);
 }
-static void ex07_logoText(HDC dc,LPCWSTR s,RECT r,HFONT f){
+static void ex07_logoTextAt(HDC dc,LPCWSTR s,RECT r,HFONT f,UINT align){
     static const int ox[8]={-1,0,1,1,1,0,-1,-1},oy[8]={-1,-1,-1,0,1,1,1,0};
-    RECT q;int i,k;
-    for(k=4;k>=2;k--)for(i=0;i<8;i++){q=r;OffsetRect(&q,ox[i]*k,oy[i]*k);ex07_text(dc,s,q,f,k==4?RGB(255,255,255):RGB(70,196,238),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
-    ex07_text(dc,s,r,f,RGB(228,68,90),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    RECT q;int i,k;UINT flags=align|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS;
+    for(k=4;k>=2;k--)for(i=0;i<8;i++){q=r;OffsetRect(&q,ox[i]*k,oy[i]*k);ex07_text(dc,s,q,f,k==4?RGB(255,255,255):RGB(70,196,238),flags);}
+    ex07_text(dc,s,r,f,RGB(228,68,90),flags);
 }
-static void ex07_skyBuild(void){
+static void ex07_logoText(HDC dc,LPCWSTR s,RECT r,HFONT f){ex07_logoTextAt(dc,s,r,f,DT_CENTER);}
+/* Halftone paper: a vertical wash, soft blooms in the corners and dots that grow toward the edges. */
+static HBITMAP ex07_halftone(COLORREF top,COLORREF middle,COLORREF bottom,COLORREF bloom,COLORREF dot){
     static const int bx[4]={62,740,88,714},by[4]={56,60,534,546},brad[4]={300,300,330,330};
-    BITMAPINFO bi;DWORD*px=NULL;HDC probe;int x,y,i;
-    if(ex07_sky)return;
+    BITMAPINFO bi;DWORD*px=NULL;HDC probe;HBITMAP bm;int x,y,i;
     ZeroMemory(&bi,sizeof(bi));bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=800;bi.bmiHeader.biHeight=-600;bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;bi.bmiHeader.biCompression=BI_RGB;
-    probe=GetDC(NULL);if(!probe)return;
-    ex07_sky=CreateDIBSection(probe,&bi,DIB_RGB_COLORS,(void**)&px,NULL,0);ReleaseDC(NULL,probe);
-    if(!ex07_sky||!px){if(ex07_sky){DeleteObject(ex07_sky);ex07_sky=NULL;}return;}
+    probe=GetDC(NULL);if(!probe)return NULL;
+    bm=CreateDIBSection(probe,&bi,DIB_RGB_COLORS,(void**)&px,NULL,0);ReleaseDC(NULL,probe);
+    if(!bm||!px){if(bm)DeleteObject(bm);return NULL;}
     for(y=0;y<600;y++)for(x=0;x<800;x++){
-        double r,g,b,k,rose=0,cov,rad,shade;int dx,dy,d2,cell,ex,ey;
-        if(y<270){k=y/269.0;r=203+44*k;g=233+19*k;b=244+9*k;}
-        else{k=(y-270)/329.0;r=247-33*k;g=252-18*k;b=253-9*k;}
+        double r,g,b,k,rose=0,cov,rad,shade;int dx,dy,d2,cell,ex,ey;COLORREF from=y<270?top:middle,to=y<270?middle:bottom;
+        k=y<270?y/269.0:(y-270)/329.0;
+        r=GetRValue(from)+(GetRValue(to)-GetRValue(from))*k;g=GetGValue(from)+(GetGValue(to)-GetGValue(from))*k;b=GetBValue(from)+(GetBValue(to)-GetBValue(from))*k;
         for(i=0;i<4;i++){dx=x-bx[i];dy=y-by[i];d2=dx*dx+dy*dy;if(d2<brad[i]*brad[i]){k=1.0-(double)d2/((double)brad[i]*brad[i]);rose+=k*k*0.62;}}
         if(rose>0.60)rose=0.60;
-        if(rose>0){r+=(246-r)*rose;g+=(186-g)*rose;b+=(196-b)*rose;}
+        if(rose>0){r+=(GetRValue(bloom)-r)*rose;g+=(GetGValue(bloom)-g)*rose;b+=(GetBValue(bloom)-b)*rose;}
         ex=x-400;ey=y-300;shade=(double)(ex*ex)/160000.0+(double)(ey*ey)/90000.0;if(shade>1.0)shade=1.0;
         cell=((y/12)&1)?6:0;dx=(((x-cell)%12)+12)%12-6;dy=y%12-6;d2=dx*dx+dy*dy;
         rad=1.05+2.15*shade;cov=rad*rad-(double)d2;
-        if(cov>0){if(cov>1.0)cov=1.0;cov*=0.46;r+=(150-r)*cov;g+=(206-g)*cov;b+=(230-b)*cov;}
+        if(cov>0){if(cov>1.0)cov=1.0;cov*=0.46;r+=(GetRValue(dot)-r)*cov;g+=(GetGValue(dot)-g)*cov;b+=(GetBValue(dot)-b)*cov;}
         px[y*800+x]=((DWORD)(int)(r+0.5)<<16)|((DWORD)(int)(g+0.5)<<8)|(DWORD)(int)(b+0.5);
     }
+    return bm;
+}
+static void ex07_backdrop(HBITMAP bm,COLORREF fallback){
+    RECT r={0,0,800,600};HDC src=bm?CreateCompatibleDC(ex07_dc):NULL;HGDIOBJ old;
+    if(src){old=SelectObject(src,bm);BitBlt(ex07_dc,0,0,800,600,src,0,0,SRCCOPY);SelectObject(src,old);DeleteDC(src);}
+    else ex07_box(ex07_dc,r,fallback);
+}
+static void ex07_skyDraw(void){
+    if(!ex07_sky)ex07_sky=ex07_halftone(RGB(203,233,244),RGB(247,252,253),RGB(214,234,244),RGB(246,186,196),RGB(150,206,230));
+    ex07_backdrop(ex07_sky,RGB(226,240,247));
+}
+/* Content panels: light for reading, dark as a frame for pictures. */
+static void ex07_panel(HDC dc,RECT r,BOOL dark){ex07_plate(dc,r,12,RGB(150,232,250),RGB(40,140,176),dark?RGB(28,46,60):RGB(250,253,254),dark?RGB(14,24,34):RGB(222,238,246));}
+/* The title screen's entry button: a fin on the left of a cyan-rimmed lens. */
+static void ex07_lens(HDC dc,RECT r,LPCWSTR text,BOOL hot,BOOL enabled){
+    int h=r.bottom-r.top;RECT label={r.left+52,r.top,r.right-10,r.bottom};
+    ex07_fin(dc,r.left+16,r.top,h,hot&&enabled);
+    if(enabled)ex07_plate(dc,r,h/2,hot?RGB(150,232,252):RGB(52,186,236),hot?RGB(30,140,186):RGB(0,112,156),hot?RGB(220,240,240):RGB(178,204,202),hot?RGB(164,200,202):RGB(124,156,156));
+    else ex07_plate(dc,r,h/2,RGB(176,194,200),RGB(126,144,152),RGB(214,220,222),RGB(180,190,194));
+    ex07_text(dc,text,label,ex07_small,!enabled?RGB(118,132,140):hot?RGB(0,30,44):RGB(0,43,58),DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
 }
 static void ex07_button(HDC dc,RECT r,LPCWSTR text,BOOL selected){
     RECT shadow;int h=r.bottom-r.top,radius=h/2<12?h/2:12;
@@ -205,20 +226,12 @@ static void ex07_button(HDC dc,RECT r,LPCWSTR text,BOOL selected){
 static int ex07_hubHit(int x,int y){int n;if(x<190||x>=610||y<150||y>=478)return -1;n=(y-150)/56;return n<6&&(y-150)%56<48?n:-1;}
 static void ex07_hubRender(HWND w,HDC dest){
     static const WCHAR*labels[]={L"드라마 CD · 은빛 악마와 금빛 도깨비",L"우로보로스의 사랑",L"사운드 모드",L"추가 CG 감상",L"플로우 차트",L"타이틀로"};
-    RECT r,client,plate;HDC src;HGDIOBJ old=NULL;int i;BOOL hot;
-    GetClientRect(w,&client);ex07_skyBuild();
-    src=ex07_sky?CreateCompatibleDC(ex07_dc):NULL;
-    if(src){old=SelectObject(src,ex07_sky);BitBlt(ex07_dc,0,0,800,600,src,0,0,SRCCOPY);SelectObject(src,old);DeleteDC(src);}
-    else{r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(226,240,247));}
+    RECT r,client,plate;int i;
+    GetClientRect(w,&client);ex07_skyDraw();
     r=(RECT){0,34,800,102};ex07_logoText(ex07_dc,L"엑스트라",r,ex07_logo);
     r=(RECT){0,104,800,130};ex07_text(ex07_dc,L"D r a † K o I   E X T R A",r,ex07_note,RGB(74,120,148),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
     /* Rows stay at 190..610 / 150+56i; the lens and its fin only dress them. */
-    for(i=0;i<6;i++){
-        hot=ex07_hover==i;plate=(RECT){192,152+56*i,608,196+56*i};
-        ex07_fin(ex07_dc,plate.left+16,plate.top,44,hot);
-        ex07_plate(ex07_dc,plate,22,hot?RGB(150,232,252):RGB(52,186,236),hot?RGB(30,140,186):RGB(0,112,156),hot?RGB(220,240,240):RGB(178,204,202),hot?RGB(164,200,202):RGB(124,156,156));
-        r=(RECT){244,plate.top,598,plate.bottom};ex07_text(ex07_dc,labels[i],r,ex07_small,hot?RGB(0,30,44):RGB(0,43,58),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-    }
+    for(i=0;i<6;i++){plate=(RECT){192,152+56*i,608,196+56*i};ex07_lens(ex07_dc,plate,labels[i],ex07_hover==i,TRUE);}
     r=(RECT){0,556,800,559};ex07_box(ex07_dc,r,RGB(104,186,214));
     r=(RECT){0,559,800,600};ex07_box(ex07_dc,r,RGB(20,34,48));
     ex07_text(ex07_dc,L"원하는 항목을 고르세요 · Esc 키를 누르면 타이틀로 돌아갑니다",r,ex07_small,RGB(214,232,241),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
@@ -240,35 +253,40 @@ static void ex07_render(HWND w,HDC dest){
     if(ex07_novel){sb_render(w,dest);return;}
     if(ex07_sound){sm_render(w,dest);return;}
     if(cdart_view>=0){cdart_render(w,dest);return;}
-    r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(19,30,43));
-    for(i=0;i<600;i+=4){r=(RECT){0,i,800,i+4};ex07_box(ex07_dc,r,RGB(19+i/90,30+i/75,43+i/70));}
-    cdart_preferences();cdtitle_preferences();if(!ex07_menu){r=(RECT){348,0,800,600};cdart_inset(ex07_dc,r,cdart_background,38);}
-    r=(RECT){52,ex07_menu?22:37,ex07_menu?748:490,ex07_menu?62:80};ex07_text(ex07_dc,ex07_menu?L"은빛 악마와 금빛 도깨비":cdtitle_get(ex07_track,FALSE),r,ex07_head,RGB(244,232,205),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
+    ex07_skyDraw();cdart_preferences();cdtitle_preferences();
+    if(ex07_menu){r=(RECT){0,18,800,62};ex07_logoText(ex07_dc,L"은빛 악마와 금빛 도깨비",r,ex07_head);}
+    else{r=(RECT){56,37,490,80};ex07_logoTextAt(ex07_dc,cdtitle_get(ex07_track,FALSE),r,ex07_head,DT_LEFT);}
     if(!ex07_menu){r=(RECT){502,42,618,76};ex07_button(ex07_dc,r,L"배경 선택",cdart_picker);r=(RECT){630,42,746,76};ex07_button(ex07_dc,r,L"그림 보기",FALSE);}
     cdsub_preferences();for(i=0;i<3;i++){int y=ex07_menu?133:84;r=(RECT){160+110*i,y,260+110*i,y+34};ex07_button(ex07_dc,r,cdsub_names[i],cdsub_mode==i);}
     if(ex07_menu){
-        r=(RECT){54,64,746,127};ex07_text(ex07_dc,ex07_synopsis,r,ex07_note,RGB(184,202,215),DT_WORDBREAK);
-        r=(RECT){54,133,148,167};ex07_text(ex07_dc,L"자막",r,ex07_small,RGB(180,196,208),DT_VCENTER|DT_SINGLELINE);
+        r=(RECT){54,64,746,127};ex07_text(ex07_dc,ex07_synopsis,r,ex07_note,RGB(52,86,108),DT_WORDBREAK);
+        r=(RECT){54,133,148,167};ex07_text(ex07_dc,L"자막",r,ex07_small,RGB(22,46,62),DT_VCENTER|DT_SINGLELINE);
         r=(RECT){590,133,746,167};ex07_button(ex07_dc,r,cdtitle_korean?L"제목 번역 ON":L"제목 번역 OFF",cdtitle_korean);
+        r=(RECT){48,169,316,472};ex07_panel(ex07_dc,r,TRUE);
         r=(RECT){54,173,310,468};cdart_inset(ex07_dc,r,cdart_menuImage,255);
         r=(RECT){54,476,134,508};ex07_button(ex07_dc,r,L"책자 표지",cdart_menuImage==0);
         r=(RECT){142,476,222,508};ex07_button(ex07_dc,r,L"주인공",cdart_menuImage==1);
         r=(RECT){230,476,310,508};ex07_button(ex07_dc,r,L"교실 표지",cdart_menuImage==2);
-        for(i=0;i<13;i++){LPCWSTR title=cdtitle_get(i,TRUE);r=(RECT){330,173+i*26,746,198+i*26};_snwprintf_s(buf,160,_TRUNCATE,L"%02d. %s",i+1,title);ex07_box(ex07_dc,r,i==ex07_hover||i==ex07_track?RGB(48,72,88):RGB(28,46,60));r.left+=12;ex07_text(ex07_dc,buf,r,ex07_small,RGB(236,235,226),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);}
+        r=(RECT){324,169,752,514};ex07_panel(ex07_dc,r,FALSE);
+        for(i=0;i<13;i++){LPCWSTR title=cdtitle_get(i,TRUE);r=(RECT){330,173+i*26,746,198+i*26};_snwprintf_s(buf,160,_TRUNCATE,L"%02d. %s",i+1,title);
+            if(i==ex07_hover||i==ex07_track)ex07_plate(ex07_dc,r,8,RGB(176,240,254),RGB(54,160,196),RGB(250,254,255),RGB(214,240,250));else if(i&1)ex07_box(ex07_dc,r,RGB(234,244,249));
+            r.left+=12;ex07_text(ex07_dc,buf,r,ex07_small,RGB(22,46,62),DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);}
     }else if(t){
         page=ex07_page();
-        _snwprintf_s(buf,160,_TRUNCATE,L"%02d / %02d",page,t->pages);r=(RECT){56,84,148,118};ex07_text(ex07_dc,buf,r,ex07_small,RGB(177,194,206),DT_SINGLELINE|DT_VCENTER);
+        _snwprintf_s(buf,160,_TRUNCATE,L"%02d / %02d",page,t->pages);r=(RECT){56,84,148,118};ex07_text(ex07_dc,buf,r,ex07_small,RGB(22,46,62),DT_SINGLELINE|DT_VCENTER);
         r=(RECT){502,84,576,118};ex07_button(ex07_dc,r,L"이전 쪽",FALSE);r=(RECT){587,84,661,118};ex07_button(ex07_dc,r,L"현재",ex07_viewPage==0);r=(RECT){672,84,746,118};ex07_button(ex07_dc,r,L"다음 쪽",FALSE);
-        if(ex07_cue<0&&ex07_readCue[ex07_track]<0){r=(RECT){70,170,730,218};ex07_text(ex07_dc,L"재생 중…",r,ex07_font,RGB(210,221,227),DT_SINGLELINE);}
+        r=(RECT){44,124,756,512};ex07_panel(ex07_dc,r,FALSE);
+        SaveDC(ex07_dc);IntersectClipRect(ex07_dc,48,128,752,508);r=(RECT){348,128,752,508};cdart_inset(ex07_dc,r,cdart_background,44);RestoreDC(ex07_dc,-1);
+        if(ex07_cue<0&&ex07_readCue[ex07_track]<0){r=(RECT){70,170,730,218};ex07_text(ex07_dc,L"재생 중…",r,ex07_font,RGB(60,104,132),DT_SINGLELINE);}
         for(i=0;i<=ex07_readCue[ex07_track];i++){const EX07_CUE*c=&t->cues[i];int yy;BOOL active=ex07_replaying?i==ex07_replayCue:i==ex07_cue;if(c->page!=page)continue;
-            if(i==ex07_hover){r=(RECT){60,c->y,740,c->y+c->height};ex07_box(ex07_dc,r,RGB(39,58,73));}
+            if(i==ex07_hover){r=(RECT){60,c->y,740,c->y+c->height};ex07_plate(ex07_dc,r,8,RGB(176,240,254),RGB(54,160,196),RGB(250,254,255),RGB(214,240,250));}
             yy=c->y+5;
-            for(j=0;j<c->count;j++){int pitch=cdsub_pitch(c->lines[j].source);BOOL smallSource=c->lines[j].source&&cdsub_mode==2;r=(RECT){78,yy,730,yy+pitch};ex07_text(ex07_dc,c->lines[j].text,r,c->lines[j].source?(cdsub_mode==1?ex07_jpMain:ex07_jp):ex07_font,smallSource?RGB(178,197,211):(active?RGB(255,231,172):RGB(239,239,233)),DT_SINGLELINE);yy+=pitch;}
+            for(j=0;j<c->count;j++){int pitch=cdsub_pitch(c->lines[j].source);BOOL smallSource=c->lines[j].source&&cdsub_mode==2;r=(RECT){78,yy,730,yy+pitch};ex07_text(ex07_dc,c->lines[j].text,r,c->lines[j].source?(cdsub_mode==1?ex07_jpMain:ex07_jp):ex07_font,smallSource?RGB(96,120,138):(active?RGB(196,40,72):RGB(22,46,62)),DT_SINGLELINE);yy+=pitch;}
         }
     }
-    r=(RECT){60,516,740,520};ex07_box(ex07_dc,r,RGB(70,89,103));
-    if(t){DWORD duration=(DWORD)((ULONGLONG)ex07_bytes*1000/176400);r.right=60+(LONG)((ULONGLONG)min(ex07_position,duration)*680/max(duration,1));ex07_box(ex07_dc,r,RGB(221,198,142));
-        _snwprintf_s(buf,160,_TRUNCATE,L"%02lu:%02lu / %02lu:%02lu",ex07_position/60000,(ex07_position/1000)%60,duration/60000,(duration/1000)%60);r=(RECT){200,526,600,549};ex07_text(ex07_dc,buf,r,ex07_small,RGB(182,199,211),DT_CENTER|DT_SINGLELINE);
+    r=(RECT){60,516,740,520};ex07_box(ex07_dc,r,RGB(190,214,226));
+    if(t){DWORD duration=(DWORD)((ULONGLONG)ex07_bytes*1000/176400);r.right=60+(LONG)((ULONGLONG)min(ex07_position,duration)*680/max(duration,1));ex07_box(ex07_dc,r,RGB(52,186,236));
+        _snwprintf_s(buf,160,_TRUNCATE,L"%02lu:%02lu / %02lu:%02lu",ex07_position/60000,(ex07_position/1000)%60,duration/60000,(duration/1000)%60);r=(RECT){200,526,600,549};ex07_text(ex07_dc,buf,r,ex07_small,RGB(22,46,62),DT_CENTER|DT_SINGLELINE);
         if(!ex07_menu){r=(RECT){60,524,196,550};ex07_button(ex07_dc,r,L"이전 트랙",FALSE);if(ex07_track==0){ex07_plate(ex07_dc,r,r.bottom-r.top>=24?12:(r.bottom-r.top)/2,RGB(30,58,74),RGB(18,36,48),RGB(30,48,60),RGB(22,36,47));ex07_text(ex07_dc,L"이전 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}r=(RECT){604,524,740,550};ex07_button(ex07_dc,r,L"다음 트랙",FALSE);if(ex07_track==12){ex07_plate(ex07_dc,r,r.bottom-r.top>=24?12:(r.bottom-r.top)/2,RGB(30,58,74),RGB(18,36,48),RGB(30,48,60),RGB(22,36,47));ex07_text(ex07_dc,L"다음 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}}
     }
     r=(RECT){44,554,148,590};ex07_button(ex07_dc,r,L"타이틀로",FALSE);

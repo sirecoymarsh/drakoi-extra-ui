@@ -79,35 +79,37 @@ static void sb_drawCover(HDC dc){
 }
 static void sb_render(HWND w,HDC dest){
     RECT client,r;WCHAR buf[160];int i,j,start;const SB_STEP*c;
-    GetClientRect(w,&client);
-    for(i=0;i<600;i+=4){r=(RECT){0,i,800,i+4};ex07_box(ex07_dc,r,RGB(22+i/150,26+i/100,38+i/90));}
-    r=(RECT){52,37,748,80};ex07_text(ex07_dc,L"우로보로스의 사랑",r,ex07_head,RGB(244,232,205),DT_SINGLELINE|DT_VCENTER);
+    GetClientRect(w,&client);ex07_skyDraw();
+    r=(RECT){0,30,800,80};ex07_logoText(ex07_dc,L"우로보로스의 사랑",r,ex07_head);
     if(sb_menu){
-        r=(RECT){54,88,748,116};ex07_text(ex07_dc,L"읽을 편을 선택해 주세요. 읽던 위치는 자동으로 기억합니다.",r,ex07_small,RGB(184,197,210),DT_SINGLELINE);
-        sb_drawCover(ex07_dc);
-        r=(RECT){352,162,746,214};ex07_button(ex07_dc,r,L"상편 · 처음부터",ex07_hover==0);
-        r=(RECT){352,234,746,286};ex07_button(ex07_dc,r,L"하편 · 처음부터",ex07_hover==1);
-        r=(RECT){352,306,746,358};ex07_button(ex07_dc,r,L"이어서 읽기",ex07_hover==2);
+        r=(RECT){54,88,748,116};ex07_text(ex07_dc,L"읽을 편을 선택해 주세요. 읽던 위치는 자동으로 기억합니다.",r,ex07_small,RGB(52,86,108),DT_CENTER|DT_SINGLELINE);
+        r=(RECT){48,136,314,490};ex07_panel(ex07_dc,r,TRUE);sb_drawCover(ex07_dc);
+        /* Hit rows stay at 352..746 / 162,234,306 + 52; the lenses sit inside them. */
+        r=(RECT){352,164,746,212};ex07_lens(ex07_dc,r,L"상편 · 처음부터",ex07_hover==0,TRUE);
+        r=(RECT){352,236,746,284};ex07_lens(ex07_dc,r,L"하편 · 처음부터",ex07_hover==1,TRUE);
+        r=(RECT){352,308,746,356};ex07_lens(ex07_dc,r,L"이어서 읽기",ex07_hover==2,sb_bookmark>=0);
         if(sb_bookmark>=0){c=&sb_steps[sb_bookmark];_snwprintf_s(buf,160,_TRUNCATE,L"%s · %d / %d 페이지",c->part?L"하편":L"상편",c->page+1,sb_pages[c->part]);}
         else wcscpy_s(buf,160,L"아직 읽기 기록이 없습니다.");
-        r=(RECT){352,368,746,397};ex07_text(ex07_dc,buf,r,ex07_small,RGB(184,197,210),DT_CENTER|DT_SINGLELINE);
-        r=(RECT){352,412,746,526};ex07_text(ex07_dc,L"하가네야 진이 쓴 《드라†코이》 외전.\n2006년 《더 스니커》 4월호에 처음 실렸다.\n2007년 12월 코믹마켓 73에서\n니트로플러스 세트 특전 책자로 재록됐다.",r,ex07_small,RGB(184,197,210),DT_WORDBREAK);
+        r=(RECT){352,368,746,397};ex07_text(ex07_dc,buf,r,ex07_small,RGB(52,86,108),DT_CENTER|DT_SINGLELINE);
+        r=(RECT){344,404,754,520};ex07_panel(ex07_dc,r,FALSE);
+        r=(RECT){354,414,744,516};ex07_text(ex07_dc,L"하가네야 진이 쓴 《드라†코이》 외전.\n2006년 《더 스니커》 4월호에 처음 실렸다.\n2007년 12월 코믹마켓 73에서\n니트로플러스 세트 특전 책자로 재록됐다.",r,ex07_small,RGB(22,46,62),DT_WORDBREAK);
     }else if(sb_index>=0&&sb_index<SB_COUNT){
         c=&sb_steps[sb_index];_snwprintf_s(buf,160,_TRUNCATE,L"%s · %d / %d 페이지",c->part?L"하편":L"상편",c->page+1,sb_pages[c->part]);
-        r=(RECT){56,89,746,115};ex07_text(ex07_dc,buf,r,ex07_small,RGB(180,196,210),DT_SINGLELINE);
+        r=(RECT){56,89,746,115};ex07_text(ex07_dc,buf,r,ex07_small,RGB(52,86,108),DT_SINGLELINE);
+        r=(RECT){40,120,760,514};ex07_panel(ex07_dc,r,FALSE);
         start=sb_index;while(start>0&&sb_steps[start-1].part==c->part&&sb_steps[start-1].page==c->page)start--;
         for(i=start;i<=sb_index;i++){const SB_STEP*p=&sb_steps[i];if(sb_decoration(i))continue;for(j=0;j<p->count;j++){
             BOOL flash=wcschr(p->lines[j],L'□')!=NULL;WCHAR clean[1024];LPCWSTR text=p->lines[j];
             if(flash){sb_stripFrame(text,clean,1024);text=clean;}
             r=(RECT){64,p->y+j*36,744,p->y+j*36+34};
-            ex07_text(ex07_dc,text,r,flash?ex07_head:ex07_font,i==sb_index?RGB(255,231,172):RGB(237,237,233),DT_SINGLELINE|(flash?DT_CENTER:0));
+            ex07_text(ex07_dc,text,r,flash?ex07_head:ex07_font,flash?(i==sb_index?RGB(196,40,72):RGB(214,150,166)):(i==sb_index?RGB(10,30,44):RGB(112,130,142)),DT_SINGLELINE|(flash?DT_CENTER:0));
         }}
-        r=(RECT){60,529,740,550};ex07_text(ex07_dc,sb_saved?L"클릭 / Space: 다음 문단   ·   ←: 이전 문단   ·   위치 자동 저장":L"읽던 위치를 저장하지 못했습니다.",r,ex07_small,RGB(178,193,205),DT_CENTER|DT_SINGLELINE);
+        r=(RECT){60,529,740,550};ex07_text(ex07_dc,sb_saved?L"클릭 / Space: 다음 문단   ·   ←: 이전 문단   ·   위치 자동 저장":L"읽던 위치를 저장하지 못했습니다.",r,ex07_small,RGB(60,104,132),DT_CENTER|DT_SINGLELINE);
         r=(RECT){286,554,390,590};ex07_button(ex07_dc,r,L"목차",ex07_hover==12);
         r=(RECT){402,554,550,590};ex07_button(ex07_dc,r,L"이전",ex07_hover==13);
         r=(RECT){562,554,756,590};ex07_button(ex07_dc,r,sb_index==SB_COUNT-1?L"목차로":sb_index==sb_end[0]-1?L"하편으로":L"다음",ex07_hover==14);
     }
-    r=(RECT){54,sb_menu?527:500,748,sb_menu?552:525};ex07_text(ex07_dc,sb_notice,r,ex07_small,RGB(180,196,210),DT_CENTER|DT_SINGLELINE);
+    r=(RECT){54,sb_menu?527:500,748,sb_menu?552:525};ex07_text(ex07_dc,sb_notice,r,ex07_small,RGB(170,40,72),DT_CENTER|DT_SINGLELINE);
     r=(RECT){44,554,148,590};ex07_button(ex07_dc,r,L"타이틀로",ex07_hover==10);
     r=(RECT){160,554,274,590};ex07_button(ex07_dc,r,L"엑스트라로",ex07_hover==11);
     SetStretchBltMode(dest,HALFTONE);StretchBlt(dest,0,0,client.right,client.bottom,ex07_dc,0,0,800,600,SRCCOPY);
