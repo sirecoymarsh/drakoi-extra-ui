@@ -56,28 +56,63 @@ int wmain(int argc,wchar_t**argv){
   puts("PASS: exact synopsis fits 3 lines; moved language/title buttons and all 13 track rows align with hit regions; introduction has no hidden old hit targets; all 3 artwork variants rendered. Existing audio/playback behavior unchanged.");return 0;
  }
  if(argc==3&&!wcscmp(argv[2],L"--flowchart")){
-  MSG msg;POINT pointer={300,250};WCHAR name[64];double sx,sy;const UINT modes[]={EX07_OPEN,EX07_NOVEL,EX07_SOUND,EX07_GALLERY,EX07_FLOW,EX07_TITLE};
+  MSG msg;POINT pointer={300,250};WCHAR name[64];double sx,sy,fitX,fitY;const UINT modes[]={EX07_OPEN,EX07_NOVEL,EX07_SOUND,EX07_GALLERY,EX07_FLOW,EX07_TITLE};
   CHECK(SetPixel(dc,782,590,RGB(13,199,91))!=CLR_INVALID);CHECK(SetPixel(dc,786,590,RGB(233,17,151))!=CLR_INVALID);CHECK(SetPixel(dc,790,590,RGB(41,113,229))!=CLR_INVALID);
   extra07_probe_frame(host,dc,0,0,800,600);CHECK(PeekMessageW(&msg,host,EX07_HUB,EX07_HUB,PM_REMOVE));CHECK(extra07_window_message(host,msg.message,0,0,&out));CHECK(ex07_hub&&!ex07_flow);
   for(i=0;i<6;i++){CHECK(ex07_hit(400,174+56*i)==i);CHECK(ex07_hit(400,200+56*i)==-1);ex07_proc(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(400,174+56*i));CHECK(PeekMessageW(&msg,host,modes[i],modes[i],PM_REMOVE));}
   ex07_render(ex07_child,dc);GdiFlush();CHECK(savebmp(bm,L"extra-hub-flowchart.bmp"));
   CHECK(extra07_window_message(host,EX07_FLOW,0,0,&out));CHECK(ex07_flow&&!ex07_hub&&!ex07_audio&&reviewAudioGate);
-  for(i=0;i<(int)(sizeof(flow_nodes)/sizeof(flow_nodes[0]));i++){
-   const FLOW_NODE*n=&flow_nodes[i];SelectObject(dc,ex07_font);CHECK(GetTextExtentPoint32W(dc,n->title,lstrlenW(n->title),&extent)&&extent.cx<=n->width-16);
-   SelectObject(dc,ex07_small);CHECK(GetTextExtentPoint32W(dc,n->detail,lstrlenW(n->detail),&extent)&&extent.cx<=n->width-16);
+  /* at 100% every node sits inside the panel with unclipped text and hit-tests back to itself */
+  fitX=flow_x;fitY=flow_y;CHECK(flow_scale==1&&fitX==FLOW_LEFT+(FLOW_RIGHT-FLOW_LEFT-FLOW_W)/2.0&&fitY==FLOW_TOP+(FLOW_BOTTOM-FLOW_TOP-FLOW_H)/2.0);
+  for(i=0;i<FLOW_COUNT;i++){
+   const FLOW_NODE*n=&flow_nodes[i];int left=(int)fitX+n->x,top=(int)fitY+n->y,room=n->x+n->width-8-flow_textLeft(n);
+   CHECK(left>=FLOW_LEFT&&left+n->width<=FLOW_RIGHT&&top>=FLOW_TOP&&top+n->height<=FLOW_BOTTOM);
+   CHECK(flow_hit(left+n->width/2,top+n->height/2)==100+i);
+   if(n->kind==1){SIZE detail;SelectObject(dc,ex07_note);CHECK(GetTextExtentPoint32W(dc,n->title,lstrlenW(n->title),&extent));SelectObject(dc,ex07_tiny);CHECK(GetTextExtentPoint32W(dc,n->detail,lstrlenW(n->detail),&detail));CHECK(extent.cx+(n->detail[0]?12+detail.cx:0)<=n->width-20);}
+   else if(n->height<40){_snwprintf_s(name,64,_TRUNCATE,L"%s · %s",n->title,n->detail);SelectObject(dc,ex07_note);CHECK(GetTextExtentPoint32W(dc,name,lstrlenW(name),&extent)&&extent.cx<=n->width-20);}
+   else{SelectObject(dc,ex07_small);CHECK(GetTextExtentPoint32W(dc,n->title,lstrlenW(n->title),&extent)&&extent.cx<=room);SelectObject(dc,n->kind>=3?ex07_note:ex07_tiny);CHECK(GetTextExtentPoint32W(dc,n->detail,lstrlenW(n->detail),&extent)&&extent.cx<=room);}
   }
-  for(i=0;i<(int)(sizeof(flow_stops)/sizeof(flow_stops[0]));i++){flow_stop=i;flow_focus(0);ex07_render(ex07_child,dc);GdiFlush();_snwprintf_s(name,64,_TRUNCATE,L"flowchart-section-%d.bmp",i);CHECK(savebmp(bm,name));}
-  flow_reset();scale=flow_scale;anchorX=(300-flow_x)/scale;anchorY=(250-flow_y)/scale;ClientToScreen(ex07_child,&pointer);
+  for(i=0;i<FLOW_COUNT;i++)for(j=i+1;j<FLOW_COUNT;j++){const FLOW_NODE*p=&flow_nodes[i],*q=&flow_nodes[j];CHECK(p->x+p->width<=q->x||q->x+q->width<=p->x||p->y+p->height<=q->y||q->y+q->height<=p->y);}
+  for(i=0;i<FLOW_EDGES;i++)if(flow_edges[i].route==0&&flow_edges[i].label){const FLOW_NODE*n=&flow_nodes[flow_edges[i].from];SIZE tag;_snwprintf_s(name,64,_TRUNCATE,L"%s ↓",flow_edges[i].label);SelectObject(dc,ex07_tiny);CHECK(GetTextExtentPoint32W(dc,name,lstrlenW(name),&tag));SelectObject(dc,ex07_small);CHECK(GetTextExtentPoint32W(dc,n->title,lstrlenW(n->title),&extent));CHECK(flow_textLeft(n)+extent.cx+8<=n->x+n->width-8-tag.cx);}
+  CHECK(flow_hit((int)fitX+280,(int)fitY+10)==-1&&flow_hit(10,300)==-1&&flow_hit(400,70)==-1);
+  ex07_render(ex07_child,dc);GdiFlush();CHECK(savebmp(bm,L"flowchart-overview.bmp"));
+  ex07_hover=101;ex07_render(ex07_child,dc);GdiFlush();CHECK(flow_previewNode==1&&flow_preview);CHECK(savebmp(bm,L"flowchart-preview.bmp"));ex07_hover=-1;
+  /* plain wheel zooms about the pointer, a drag pans without opening a scene, 0 returns to the full chart */
+  scale=flow_scale;anchorX=(300-flow_x)/scale;anchorY=(250-flow_y)/scale;ClientToScreen(ex07_child,&pointer);
   SendMessageW(ex07_child,WM_MOUSEWHEEL,MAKEWPARAM(0,120),MAKELPARAM(pointer.x,pointer.y));CHECK(flow_scale>scale&&fabs((300-flow_x)/flow_scale-anchorX)<.001&&fabs((250-flow_y)/flow_scale-anchorY)<.001);
-  sx=flow_x;sy=flow_y;SendMessageW(ex07_child,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(300,250));SendMessageW(ex07_child,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(335,275));SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(335,275));CHECK(!flow_drag&&flow_x==sx+35&&flow_y==sy+25);
-  SendMessageW(ex07_child,WM_KEYDOWN,'0',0);CHECK(flow_scale<.25);ex07_render(ex07_child,dc);GdiFlush();CHECK(savebmp(bm,L"flowchart-fit.bmp"));
-  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(705,572));CHECK(flow_scale==1&&flow_stop==0);
-  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(585,572));CHECK(flow_stop==1);SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(470,572));CHECK(flow_stop==0);
+  sx=flow_x;sy=flow_y;SendMessageW(ex07_child,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(335,275));SendMessageW(ex07_child,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(300,250));SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(300,250));CHECK(!flow_drag&&flow_x==sx-35&&flow_y==sy-25&&flow_view==-1);
+  for(i=0;i<3;i++)SendMessageW(ex07_child,WM_MOUSEWHEEL,MAKEWPARAM(0,120),MAKELPARAM(pointer.x,pointer.y));
+  ex07_render(ex07_child,dc);GdiFlush();CHECK(savebmp(bm,L"flowchart-zoom.bmp"));
+  SendMessageW(ex07_child,WM_KEYDOWN,'0',0);CHECK(flow_scale==1&&flow_x==fitX&&flow_y==fitY);
+  /* every node opens its scene inside the module; Esc goes back to the chart, not out of it */
+  for(i=0;i<FLOW_COUNT;i++){
+   const FLOW_NODE*n=&flow_nodes[i];
+   ex07_proc(ex07_child,WM_LBUTTONUP,0,MAKELPARAM((int)fitX+n->x+n->width/2,(int)fitY+n->y+n->height/2));
+   CHECK(flow_view==i&&flow_pick==i&&flow_scene&&!ex07_audio);
+   if(i<2){ex07_render(ex07_child,dc);GdiFlush();_snwprintf_s(name,64,_TRUNCATE,L"flowchart-scene-%d.bmp",i);CHECK(savebmp(bm,name));}
+   SendMessageW(ex07_child,WM_KEYDOWN,VK_ESCAPE,0);CHECK(flow_view==-1&&!PeekMessageW(&msg,host,EX07_BACK,EX07_BACK,PM_REMOVE));
+  }
+  /* the scene keeps the image viewer's wheel zoom, drag and fit */
+  flow_openScene(0);scale=flow_sceneScale;anchorX=(300-flow_sceneX)/scale;anchorY=(250-flow_sceneY)/scale;
+  SendMessageW(ex07_child,WM_MOUSEWHEEL,MAKEWPARAM(0,120),MAKELPARAM(pointer.x,pointer.y));CHECK(flow_sceneScale>scale&&fabs((300-flow_sceneX)/flow_sceneScale-anchorX)<.001&&fabs((250-flow_sceneY)/flow_sceneScale-anchorY)<.001);
+  sx=flow_sceneX;sy=flow_sceneY;SendMessageW(ex07_child,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(300,250));SendMessageW(ex07_child,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(335,275));SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(335,275));CHECK(flow_sceneX==sx+35&&flow_sceneY==sy+25&&flow_view==0);
+  SendMessageW(ex07_child,WM_KEYDOWN,'0',0);CHECK(flow_sceneScale==scale&&flow_view==0);
+  /* buttons and keys; previous/next skip the option chips, which share their choice's scene */
+  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(345,572));CHECK(flow_view==-1&&flow_pick==0);
+  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(585,572));CHECK(flow_pick==1);
+  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(585,572));CHECK(flow_pick==4);
+  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(470,572));CHECK(flow_pick==1&&flow_view==-1);
+  SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(705,572));CHECK(flow_view==1);
+  SendMessageW(ex07_child,WM_KEYDOWN,VK_RIGHT,0);CHECK(flow_view==4);
+  SendMessageW(ex07_child,WM_KEYDOWN,VK_RETURN,0);CHECK(flow_view==-1&&flow_pick==4);
+  SendMessageW(ex07_child,WM_KEYDOWN,VK_LEFT,0);CHECK(flow_pick==1);
+  SendMessageW(ex07_child,WM_RBUTTONUP,0,0);CHECK(PeekMessageW(&msg,host,EX07_BACK,EX07_BACK,PM_REMOVE));CHECK(extra07_window_message(host,msg.message,0,0,&out));CHECK(ex07_hub&&!ex07_flow);
+  CHECK(extra07_window_message(host,EX07_FLOW,0,0,&out));CHECK(flow_scale==1&&flow_pick==-1&&flow_view==-1);
   SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(216,572));CHECK(PeekMessageW(&msg,host,EX07_BACK,EX07_BACK,PM_REMOVE));CHECK(extra07_window_message(host,msg.message,0,0,&out));CHECK(ex07_hub&&!ex07_flow);
   CHECK(extra07_window_message(host,EX07_FLOW,0,0,&out));SendMessageW(ex07_child,WM_KEYDOWN,VK_ESCAPE,0);CHECK(PeekMessageW(&msg,host,EX07_BACK,EX07_BACK,PM_REMOVE));CHECK(extra07_window_message(host,msg.message,0,0,&out));CHECK(ex07_hub);
   CHECK(extra07_window_message(host,EX07_FLOW,0,0,&out));SendMessageW(ex07_child,WM_LBUTTONUP,0,MAKELPARAM(95,572));CHECK(PeekMessageW(&msg,host,EX07_TITLE,EX07_TITLE,PM_REMOVE));CHECK(extra07_window_message(host,msg.message,0,0,&out));CHECK(!ex07_child&&!reviewAudioGate);
   KillTimer(host,EX07_RELEASE_TIMER);DestroyWindow(host);SelectObject(dc,old);DeleteObject(bm);DeleteDC(dc);
-  puts("PASS: six hub button routes; flowchart mode and return/title exit; all node text widths; plain wheel message zoom about pointer; drag pan; fit/reset and section controls; five section renders and fit render. Read-only graph has no game-script or save mutations.");return 0;
+  puts("PASS: six hub button routes; all 20 flowchart nodes fit the panel at 100% with unclipped text, no overlap and exact hit-tests; hover preview; plain wheel zoom about the pointer, drag pan without a click, 0 fit; every node opens its scene in the module and Esc returns to the chart; scene wheel zoom, drag and fit; buttons and keys walk the scene nodes; overview, preview, zoom and two scene renders saved. Read-only graph has no game-script or save mutations.");return 0;
  }
  if(argc==3&&!wcscmp(argv[2],L"--subtitle-modes")){
   int mode,t,k,line,anchorCue,seen;DWORD held;HWAVEOUT audio;BYTE*pcm;WCHAR ini[MAX_PATH],name[64];

@@ -33,10 +33,10 @@ static BOOL ex07_replaying,ex07_resumePaused,ex07_savedPaused[13];
 static DWORD ex07_resumePosition,ex07_savedPosition[13];
 static int ex07_replayCue=-1,ex07_viewPage;
 static int ex07_readCue[13]={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-static HFONT ex07_font,ex07_small,ex07_head,ex07_jp,ex07_jpMain,ex07_note;
+static HFONT ex07_font,ex07_small,ex07_head,ex07_jp,ex07_jpMain,ex07_note,ex07_logo,ex07_tiny;
 static const WCHAR ex07_synopsis[]=L"같은 반 소녀에게 살의를 고백받은 소년과, 그를 쓰러뜨리려는 ‘정의의 히로인’.\n악의 대수령과 영웅이라는 운명 속에서 두 사람의 기묘한 사랑싸움이 시작된다.\n본편의 용공주와 어머니도 함께하는, 사랑과 살의가 뒤얽힌 《드라†코이》의 드라마 CD 외전.";
 static HDC ex07_dc;
-static HBITMAP ex07_bitmap,ex07_oldBitmap;
+static HBITMAP ex07_bitmap,ex07_oldBitmap,ex07_sky;
 #include "drama_subtitles.inc"
 static BOOL extra07_active(void){return ex07_child!=NULL;}
 static void ex07_log(const char*event){logline("EXTRA07 %s track=%d position=%lu cue=%d paused=%d\r\n",event,ex07_track+1,ex07_position,ex07_cue+1,ex07_paused);}
@@ -130,7 +130,72 @@ static void ex07_pause(void){
 }
 static void ex07_text(HDC dc,LPCWSTR s,RECT r,HFONT f,COLORREF color,UINT flags){SelectObject(dc,f);SetTextColor(dc,color);SetBkMode(dc,TRANSPARENT);DrawTextW(dc,s,-1,&r,flags|DT_NOPREFIX);}
 static void ex07_box(HDC dc,RECT r,COLORREF c){HBRUSH b=CreateSolidBrush(c);FillRect(dc,&r,b);DeleteObject(b);}
-static void ex07_button(HDC dc,RECT r,LPCWSTR text,BOOL selected){ex07_box(dc,r,selected?RGB(54,86,104):RGB(31,51,64));ex07_text(dc,text,r,ex07_small,selected?RGB(255,232,171):RGB(230,232,230),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
+/* Title-screen vocabulary: a pale halftone sky with rose blooms, and the
+ * cyan-rimmed lens plate with a dragon fin the original entry buttons use.
+ * Plates clip through paths, so they also draw correctly under a zoom transform. */
+static COLORREF ex07_mix(COLORREF a,COLORREF b,int permille){int r=GetRValue(a)+(GetRValue(b)-GetRValue(a))*permille/1000,g=GetGValue(a)+(GetGValue(b)-GetGValue(a))*permille/1000,s=GetBValue(a)+(GetBValue(b)-GetBValue(a))*permille/1000;return RGB(r,g,s);}
+static void ex07_gradient(HDC dc,RECT r,COLORREF top,COLORREF bottom){
+    TRIVERTEX v[2];GRADIENT_RECT g;g.UpperLeft=0;g.LowerRight=1;
+    v[0].x=r.left;v[0].y=r.top;v[0].Red=(COLOR16)(GetRValue(top)<<8);v[0].Green=(COLOR16)(GetGValue(top)<<8);v[0].Blue=(COLOR16)(GetBValue(top)<<8);v[0].Alpha=0;
+    v[1].x=r.right;v[1].y=r.bottom;v[1].Red=(COLOR16)(GetRValue(bottom)<<8);v[1].Green=(COLOR16)(GetGValue(bottom)<<8);v[1].Blue=(COLOR16)(GetBValue(bottom)<<8);v[1].Alpha=0;
+    GradientFill(dc,v,2,&g,1,GRADIENT_FILL_RECT_V);
+}
+static void ex07_roundClip(HDC dc,RECT r,int radius){BeginPath(dc);RoundRect(dc,r.left,r.top,r.right,r.bottom,radius*2,radius*2);EndPath(dc);SelectClipPath(dc,RGN_AND);}
+static void ex07_plate(HDC dc,RECT r,int radius,COLORREF rimTop,COLORREF rimBottom,COLORREF faceTop,COLORREF faceBottom){
+    RECT in,gloss;int inset=radius>=16?3:2;
+    if(radius<2||r.right-r.left<2*radius||r.bottom-r.top<2*inset+2){ex07_gradient(dc,r,faceTop,faceBottom);return;}
+    SaveDC(dc);ex07_roundClip(dc,r,radius);ex07_gradient(dc,r,rimTop,rimBottom);RestoreDC(dc,-1);
+    in=(RECT){r.left+inset,r.top+inset,r.right-inset,r.bottom-inset};
+    SaveDC(dc);ex07_roundClip(dc,in,radius-inset);ex07_gradient(dc,in,faceTop,faceBottom);
+    gloss=in;gloss.bottom=in.top+(in.bottom-in.top)*2/5;
+    if(gloss.bottom>gloss.top&&in.bottom-in.top<=80)ex07_gradient(dc,gloss,ex07_mix(faceTop,RGB(255,255,255),420),faceTop);
+    RestoreDC(dc,-1);
+}
+static void ex07_fin(HDC dc,int x,int y,int height,BOOL hot){
+    static const int fx[11]={0,-27,-6,-44,-9,-48,-9,-41,-5,-20,0},fy[11]={1,-7,9,5,18,20,27,34,36,45,43};
+    POINT p[11];HPEN pen;HBRUSH br;HGDIOBJ oldPen,oldBrush;int i,half=height/2;
+    pen=CreatePen(PS_SOLID,1,RGB(0,52,72));oldPen=SelectObject(dc,pen);
+    br=CreateSolidBrush(hot?RGB(120,220,250):RGB(40,180,232));oldBrush=SelectObject(dc,br);
+    for(i=0;i<11;i++){p[i].x=x+fx[i];p[i].y=y+fy[i]*height/44;}
+    Polygon(dc,p,11);SelectObject(dc,oldBrush);DeleteObject(br);
+    br=CreateSolidBrush(hot?RGB(200,242,254):RGB(140,222,250));oldBrush=SelectObject(dc,br);
+    for(i=0;i<11;i++){p[i].x=x+fx[i]*5/9;p[i].y=y+half+(fy[i]*height/44-half)*7/10;}
+    Polygon(dc,p,11);SelectObject(dc,oldBrush);DeleteObject(br);SelectObject(dc,oldPen);DeleteObject(pen);
+}
+static void ex07_logoText(HDC dc,LPCWSTR s,RECT r,HFONT f){
+    static const int ox[8]={-1,0,1,1,1,0,-1,-1},oy[8]={-1,-1,-1,0,1,1,1,0};
+    RECT q;int i,k;
+    for(k=4;k>=2;k--)for(i=0;i<8;i++){q=r;OffsetRect(&q,ox[i]*k,oy[i]*k);ex07_text(dc,s,q,f,k==4?RGB(255,255,255):RGB(70,196,238),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
+    ex07_text(dc,s,r,f,RGB(228,68,90),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+}
+static void ex07_skyBuild(void){
+    static const int bx[4]={62,740,88,714},by[4]={56,60,534,546},brad[4]={300,300,330,330};
+    BITMAPINFO bi;DWORD*px=NULL;HDC probe;int x,y,i;
+    if(ex07_sky)return;
+    ZeroMemory(&bi,sizeof(bi));bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=800;bi.bmiHeader.biHeight=-600;bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;bi.bmiHeader.biCompression=BI_RGB;
+    probe=GetDC(NULL);if(!probe)return;
+    ex07_sky=CreateDIBSection(probe,&bi,DIB_RGB_COLORS,(void**)&px,NULL,0);ReleaseDC(NULL,probe);
+    if(!ex07_sky||!px){if(ex07_sky){DeleteObject(ex07_sky);ex07_sky=NULL;}return;}
+    for(y=0;y<600;y++)for(x=0;x<800;x++){
+        double r,g,b,k,rose=0,cov,rad,shade;int dx,dy,d2,cell,ex,ey;
+        if(y<270){k=y/269.0;r=203+44*k;g=233+19*k;b=244+9*k;}
+        else{k=(y-270)/329.0;r=247-33*k;g=252-18*k;b=253-9*k;}
+        for(i=0;i<4;i++){dx=x-bx[i];dy=y-by[i];d2=dx*dx+dy*dy;if(d2<brad[i]*brad[i]){k=1.0-(double)d2/((double)brad[i]*brad[i]);rose+=k*k*0.62;}}
+        if(rose>0.60)rose=0.60;
+        if(rose>0){r+=(246-r)*rose;g+=(186-g)*rose;b+=(196-b)*rose;}
+        ex=x-400;ey=y-300;shade=(double)(ex*ex)/160000.0+(double)(ey*ey)/90000.0;if(shade>1.0)shade=1.0;
+        cell=((y/12)&1)?6:0;dx=(((x-cell)%12)+12)%12-6;dy=y%12-6;d2=dx*dx+dy*dy;
+        rad=1.05+2.15*shade;cov=rad*rad-(double)d2;
+        if(cov>0){if(cov>1.0)cov=1.0;cov*=0.46;r+=(150-r)*cov;g+=(206-g)*cov;b+=(230-b)*cov;}
+        px[y*800+x]=((DWORD)(int)(r+0.5)<<16)|((DWORD)(int)(g+0.5)<<8)|(DWORD)(int)(b+0.5);
+    }
+}
+static void ex07_button(HDC dc,RECT r,LPCWSTR text,BOOL selected){
+    RECT shadow;int h=r.bottom-r.top,radius=h/2<12?h/2:12;
+    ex07_plate(dc,r,radius,selected?RGB(150,234,252):RGB(44,132,166),selected?RGB(42,128,160):RGB(18,62,84),selected?RGB(74,138,166):RGB(44,76,94),selected?RGB(36,88,114):RGB(23,43,57));
+    shadow=r;OffsetRect(&shadow,1,1);ex07_text(dc,text,shadow,ex07_small,RGB(12,24,34),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    ex07_text(dc,text,r,ex07_small,selected?RGB(255,232,171):RGB(230,236,238),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+}
 #include "sound_player.inc"
 #include "novel_player.inc"
 #include "gallery_player.inc"
@@ -138,9 +203,29 @@ static void ex07_button(HDC dc,RECT r,LPCWSTR text,BOOL selected){ex07_box(dc,r,
 #include "drama_titles.inc"
 #include "flowchart.inc"
 static int ex07_hubHit(int x,int y){int n;if(x<190||x>=610||y<150||y>=478)return -1;n=(y-150)/56;return n<6&&(y-150)%56<48?n:-1;}
-static void ex07_hubRender(HWND w,HDC dest){RECT r,client;int i;static const WCHAR*labels[]={L"드라마 CD · 은빛 악마와 금빛 도깨비",L"우로보로스의 사랑",L"사운드 모드",L"추가 CG 감상",L"플로우 차트",L"타이틀로"};GetClientRect(w,&client);r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(19,30,43));r=(RECT){58,48,742,90};ex07_text(ex07_dc,L"엑스트라",r,ex07_head,RGB(244,232,205),DT_SINGLELINE);for(i=0;i<6;i++){r=(RECT){190,150+56*i,610,198+56*i};ex07_button(ex07_dc,r,labels[i],ex07_hover==i);}SetStretchBltMode(dest,HALFTONE);StretchBlt(dest,0,0,client.right,client.bottom,ex07_dc,0,0,800,600,SRCCOPY);}
+static void ex07_hubRender(HWND w,HDC dest){
+    static const WCHAR*labels[]={L"드라마 CD · 은빛 악마와 금빛 도깨비",L"우로보로스의 사랑",L"사운드 모드",L"추가 CG 감상",L"플로우 차트",L"타이틀로"};
+    RECT r,client,plate;HDC src;HGDIOBJ old=NULL;int i;BOOL hot;
+    GetClientRect(w,&client);ex07_skyBuild();
+    src=ex07_sky?CreateCompatibleDC(ex07_dc):NULL;
+    if(src){old=SelectObject(src,ex07_sky);BitBlt(ex07_dc,0,0,800,600,src,0,0,SRCCOPY);SelectObject(src,old);DeleteDC(src);}
+    else{r=(RECT){0,0,800,600};ex07_box(ex07_dc,r,RGB(226,240,247));}
+    r=(RECT){0,34,800,102};ex07_logoText(ex07_dc,L"엑스트라",r,ex07_logo);
+    r=(RECT){0,104,800,130};ex07_text(ex07_dc,L"D r a † K o I   E X T R A",r,ex07_note,RGB(74,120,148),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    /* Rows stay at 190..610 / 150+56i; the lens and its fin only dress them. */
+    for(i=0;i<6;i++){
+        hot=ex07_hover==i;plate=(RECT){192,152+56*i,608,196+56*i};
+        ex07_fin(ex07_dc,plate.left+16,plate.top,44,hot);
+        ex07_plate(ex07_dc,plate,22,hot?RGB(150,232,252):RGB(52,186,236),hot?RGB(30,140,186):RGB(0,112,156),hot?RGB(220,240,240):RGB(178,204,202),hot?RGB(164,200,202):RGB(124,156,156));
+        r=(RECT){244,plate.top,598,plate.bottom};ex07_text(ex07_dc,labels[i],r,ex07_small,hot?RGB(0,30,44):RGB(0,43,58),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    }
+    r=(RECT){0,556,800,559};ex07_box(ex07_dc,r,RGB(104,186,214));
+    r=(RECT){0,559,800,600};ex07_box(ex07_dc,r,RGB(20,34,48));
+    ex07_text(ex07_dc,L"원하는 항목을 고르세요 · Esc 키를 누르면 타이틀로 돌아갑니다",r,ex07_small,RGB(214,232,241),DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+    SetStretchBltMode(dest,HALFTONE);StretchBlt(dest,0,0,client.right,client.bottom,ex07_dc,0,0,800,600,SRCCOPY);
+}
 static void ex07_switchMode(UINT mode){
- cdart_close();if(ex07_novel)sb_cleanup();if(ex07_gallery)gal_cleanup();if(ex07_sound)sm_cleanup();KillTimer(ex07_child,1);KillTimer(ex07_child,2);ex07_stop();ex07_track=-1;ex07_hover=-1;ex07_menu=TRUE;
+ cdart_close();if(ex07_flow)flow_cleanup();if(ex07_novel)sb_cleanup();if(ex07_gallery)gal_cleanup();if(ex07_sound)sm_cleanup();KillTimer(ex07_child,1);KillTimer(ex07_child,2);ex07_stop();ex07_track=-1;ex07_hover=-1;ex07_menu=TRUE;
  ex07_hub=mode==EX07_HUB;ex07_novel=mode==EX07_NOVEL;ex07_sound=mode==EX07_SOUND;ex07_gallery=mode==EX07_GALLERY;ex07_flow=mode==EX07_FLOW;
  if(ex07_novel){sb_open();SetTimer(ex07_child,2,750,NULL);}else if(ex07_gallery)gal_open();else if(ex07_flow)flow_reset();else if(!ex07_hub)SetTimer(ex07_child,1,33,NULL);
  SetFocus(ex07_child);InvalidateRect(ex07_child,NULL,FALSE);logline("EXTRA MODE %u\r\n",mode);
@@ -184,7 +269,7 @@ static void ex07_render(HWND w,HDC dest){
     r=(RECT){60,516,740,520};ex07_box(ex07_dc,r,RGB(70,89,103));
     if(t){DWORD duration=(DWORD)((ULONGLONG)ex07_bytes*1000/176400);r.right=60+(LONG)((ULONGLONG)min(ex07_position,duration)*680/max(duration,1));ex07_box(ex07_dc,r,RGB(221,198,142));
         _snwprintf_s(buf,160,_TRUNCATE,L"%02lu:%02lu / %02lu:%02lu",ex07_position/60000,(ex07_position/1000)%60,duration/60000,(duration/1000)%60);r=(RECT){200,526,600,549};ex07_text(ex07_dc,buf,r,ex07_small,RGB(182,199,211),DT_CENTER|DT_SINGLELINE);
-        if(!ex07_menu){r=(RECT){60,524,196,550};ex07_button(ex07_dc,r,L"이전 트랙",FALSE);if(ex07_track==0){ex07_box(ex07_dc,r,RGB(25,38,49));ex07_text(ex07_dc,L"이전 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}r=(RECT){604,524,740,550};ex07_button(ex07_dc,r,L"다음 트랙",FALSE);if(ex07_track==12){ex07_box(ex07_dc,r,RGB(25,38,49));ex07_text(ex07_dc,L"다음 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}}
+        if(!ex07_menu){r=(RECT){60,524,196,550};ex07_button(ex07_dc,r,L"이전 트랙",FALSE);if(ex07_track==0){ex07_plate(ex07_dc,r,r.bottom-r.top>=24?12:(r.bottom-r.top)/2,RGB(30,58,74),RGB(18,36,48),RGB(30,48,60),RGB(22,36,47));ex07_text(ex07_dc,L"이전 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}r=(RECT){604,524,740,550};ex07_button(ex07_dc,r,L"다음 트랙",FALSE);if(ex07_track==12){ex07_plate(ex07_dc,r,r.bottom-r.top>=24?12:(r.bottom-r.top)/2,RGB(30,58,74),RGB(18,36,48),RGB(30,48,60),RGB(22,36,47));ex07_text(ex07_dc,L"다음 트랙",r,ex07_small,RGB(100,117,129),DT_CENTER|DT_VCENTER|DT_SINGLELINE);}}
     }
     r=(RECT){44,554,148,590};ex07_button(ex07_dc,r,L"타이틀로",FALSE);
     r=(RECT){160,554,274,590};ex07_button(ex07_dc,r,L"엑스트라로",FALSE);
@@ -212,12 +297,12 @@ static LRESULT CALLBACK ex07_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     if(m==WM_TIMER){if(ex07_novel)sb_poll();else ex07_update();InvalidateRect(w,NULL,FALSE);return 0;}
     if(ex07_flow){
         if(m==WM_MOUSEWHEEL){POINT p={GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};RECT r;if(GET_KEYSTATE_WPARAM(wp)&MK_CONTROL)return DefWindowProcW(w,m,wp,lp);ScreenToClient(w,&p);GetClientRect(w,&r);flow_zoom(p.x*800/max(r.right,1),p.y*600/max(r.bottom,1),GET_WHEEL_DELTA_WPARAM(wp));InvalidateRect(w,NULL,FALSE);return 0;}
-        if(m==WM_LBUTTONDOWN){ex07_point(w,lp,&x,&y);if(flow_area(x,y)){flow_drag=TRUE;flow_moved=FALSE;flow_lastX=x;flow_lastY=y;SetCapture(w);}return 0;}
+        if(m==WM_LBUTTONDOWN){ex07_point(w,lp,&x,&y);if(flow_area(x,y)){flow_drag=TRUE;flow_moved=FALSE;flow_lastX=flow_pressX=x;flow_lastY=flow_pressY=y;SetCapture(w);}return 0;}
         if(m==WM_CAPTURECHANGED)flow_drag=FALSE;
-        if(m==WM_MOUSEMOVE&&flow_drag){ex07_point(w,lp,&x,&y);flow_x+=x-flow_lastX;flow_y+=y-flow_lastY;flow_moved=TRUE;flow_lastX=x;flow_lastY=y;InvalidateRect(w,NULL,FALSE);return 0;}
+        if(m==WM_MOUSEMOVE&&flow_drag){ex07_point(w,lp,&x,&y);flow_pan(x-flow_lastX,y-flow_lastY);if((x-flow_pressX)*(x-flow_pressX)+(y-flow_pressY)*(y-flow_pressY)>9)flow_moved=TRUE;flow_lastX=x;flow_lastY=y;InvalidateRect(w,NULL,FALSE);return 0;}
         if(m==WM_LBUTTONUP){BOOL dragged=flow_moved;ex07_point(w,lp,&x,&y);flow_drag=flow_moved=FALSE;ReleaseCapture();if(!dragged)flow_click(x,y);InvalidateRect(w,NULL,FALSE);return 0;}
-        if(m==WM_RBUTTONUP){PostMessageW(ex07_parent,EX07_BACK,0,0);return 0;}
-        if(m==WM_KEYDOWN){if(wp==VK_ESCAPE)PostMessageW(ex07_parent,EX07_BACK,0,0);else if(wp=='0')flow_fit();else if(wp==VK_HOME)flow_reset();else if(wp==VK_NEXT||wp==VK_RIGHT)flow_focus(1);else if(wp==VK_PRIOR||wp==VK_LEFT)flow_focus(-1);else if(wp==VK_DOWN)flow_y-=80;else if(wp==VK_UP)flow_y+=80;InvalidateRect(w,NULL,FALSE);return 0;}
+        if(m==WM_RBUTTONUP){if(flow_view>=0){flow_closeScene();InvalidateRect(w,NULL,FALSE);}else PostMessageW(ex07_parent,EX07_BACK,0,0);return 0;}
+        if(m==WM_KEYDOWN){if(wp==VK_ESCAPE){if(flow_view>=0)flow_closeScene();else PostMessageW(ex07_parent,EX07_BACK,0,0);}else if(wp=='0'||wp==VK_HOME)flow_fit();else if(wp==VK_NEXT||wp==VK_RIGHT)flow_step(1);else if(wp==VK_PRIOR||wp==VK_LEFT)flow_step(-1);else if(wp==VK_DOWN)flow_pan(0,-80);else if(wp==VK_UP)flow_pan(0,80);else if(wp==VK_RETURN||wp==VK_SPACE){if(flow_view>=0)flow_closeScene();else flow_openScene(flow_pick<0?0:flow_pick);}InvalidateRect(w,NULL,FALSE);return 0;}
     }
     if(cdart_picker&&m==WM_KEYDOWN&&wp==VK_ESCAPE){cdart_picker=FALSE;InvalidateRect(w,NULL,FALSE);return 0;}
     if(cdart_view>=0){
@@ -258,13 +343,13 @@ static LRESULT CALLBACK ex07_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     }
     if(m==WM_KEYDOWN&&ex07_novel){if(!(lp&0x40000000L))sb_key(wp);InvalidateRect(w,NULL,FALSE);return 0;}
     if(m==WM_KEYDOWN){if(wp==VK_SPACE){if(!(lp&0x40000000L)){if(ex07_sound)sm_toggle();else ex07_pause();}}else if(wp==VK_ESCAPE)ex07_menu=TRUE;else if(wp==VK_F8)SendMessageW(ex07_parent,m,wp,lp);InvalidateRect(w,NULL,FALSE);return 0;}
-    if(m==WM_DESTROY){extra07_engineAudio(FALSE);if(ex07_gallery)gal_cleanup();KillTimer(w,2);if(ex07_novel)sb_cleanup();KillTimer(w,1);ex07_stop();cdart_cleanup();sm_cleanup();ex07_child=NULL;ex07_track=-1;ex07_menu=TRUE;if(ex07_dc){SelectObject(ex07_dc,ex07_oldBitmap);DeleteObject(ex07_bitmap);DeleteDC(ex07_dc);ex07_dc=NULL;}return 0;}
+    if(m==WM_DESTROY){extra07_engineAudio(FALSE);flow_cleanup();if(ex07_gallery)gal_cleanup();KillTimer(w,2);if(ex07_novel)sb_cleanup();KillTimer(w,1);ex07_stop();cdart_cleanup();sm_cleanup();ex07_child=NULL;ex07_track=-1;ex07_menu=TRUE;if(ex07_sky){DeleteObject(ex07_sky);ex07_sky=NULL;}if(ex07_dc){SelectObject(ex07_dc,ex07_oldBitmap);DeleteObject(ex07_bitmap);DeleteDC(ex07_dc);ex07_dc=NULL;}return 0;}
     return DefWindowProcW(w,m,wp,lp);
 }
 static BOOL extra07_window_message(HWND w,UINT m,WPARAM wp,LPARAM lp,LRESULT*out){
     (void)wp;(void)lp;
     if(m==EX07_OPEN||m==EX07_SOUND||m==EX07_NOVEL||m==EX07_GALLERY||m==EX07_FLOW||m==EX07_HUB){WNDCLASSW wc;RECT r;if(ex07_child){ex07_switchMode(m);*out=0;return TRUE;}ex07_flow=m==EX07_FLOW;if(ex07_flow)flow_reset();ZeroMemory(&wc,sizeof(wc));wc.lpfnWndProc=ex07_proc;wc.hInstance=ex07_instance;wc.lpszClassName=L"DraKoiContinuousExtra07";wc.hCursor=LoadCursorW(NULL,MAKEINTRESOURCEW(32512));RegisterClassW(&wc);
-        if(!ex07_font){ex07_font=CreateFontW(-24,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_small=CreateFontW(-18,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_head=CreateFontW(-26,0,0,0,700,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_jp=CreateFontW(-18,0,0,0,500,0,0,0,SHIFTJIS_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Yu Gothic");ex07_jpMain=CreateFontW(-24,0,0,0,500,0,0,0,SHIFTJIS_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Yu Gothic");ex07_note=CreateFontW(-16,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");}
+        if(!ex07_font){ex07_font=CreateFontW(-24,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_small=CreateFontW(-18,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_head=CreateFontW(-26,0,0,0,700,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_jp=CreateFontW(-18,0,0,0,500,0,0,0,SHIFTJIS_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Yu Gothic");ex07_jpMain=CreateFontW(-24,0,0,0,500,0,0,0,SHIFTJIS_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Yu Gothic");ex07_note=CreateFontW(-16,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_logo=CreateFontW(-52,0,0,0,700,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");ex07_tiny=CreateFontW(-13,0,0,0,500,0,0,0,HANGUL_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Malgun Gothic");}
         extra07_engineAudio(TRUE);ex07_hub=m==EX07_HUB;ex07_gallery=(m==EX07_GALLERY);if(ex07_gallery)gal_open();ex07_sound=(m==EX07_SOUND);ex07_novel=(m==EX07_NOVEL);if(ex07_novel)sb_open();sm_ended=FALSE;ex07_track=-1;ex07_parent=w;ex07_parentStyle=GetWindowLongPtrW(w,GWL_STYLE);SetWindowLongPtrW(w,GWL_STYLE,ex07_parentStyle|WS_CLIPCHILDREN);GetClientRect(w,&r);ex07_menu=TRUE;ex07_hover=-1;
         ex07_child=CreateWindowExW(0,wc.lpszClassName,ex07_hub?L"엑스트라":ex07_flow?L"플로우 차트":ex07_gallery?L"추가 CG 감상":ex07_novel?L"우로보로스의 사랑":ex07_sound?L"사운드 모드":L"드라마 CD",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,r.right,r.bottom,w,NULL,ex07_instance,NULL);if(ex07_child){if(ex07_novel)SetTimer(ex07_child,2,750,NULL);else if(!ex07_gallery&&!ex07_flow&&!ex07_hub)SetTimer(ex07_child,1,33,NULL);SetFocus(ex07_child);ex07_log("OPEN");}else{extra07_engineAudio(FALSE);if(ex07_gallery)gal_cleanup();if(ex07_novel)sb_cleanup();SetWindowLongPtrW(w,GWL_STYLE,ex07_parentStyle);InterlockedExchange(&ex07_latched,0);ex07_log("OPEN_FAILED");}*out=0;return TRUE;
     }
