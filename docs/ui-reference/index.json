@@ -1,0 +1,74 @@
+[
+  {
+    "path": "title-layout.png",
+    "source": "game-extra\\evidence03\\title-layout.png",
+    "width": 800,
+    "height": 600,
+    "sha256": "3ae27e085124388d65be49d9314324b7f5bcf1c09a8797a2416ebdcfbef3a37e",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-extra-hub.png",
+    "source": "extra-live-text-gallery-20261022\\title-toggle-intro-20261022\\fixture\\rendered\\extra-hub-flowchart.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "f619668d3555cb785cc159364ba445c60b76d966f3e0346add55a1ab10dbe82b",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-drama-menu.png",
+    "source": "extra-live-text-gallery-20261022\\drama-menu-intro-20261022\\fixture\\rendered\\drama-introduction-0.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "75b72ecd0bc8b92835f57b151d2224a5b78563c426df78d4786aef6a547c42c1",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-drama-protagonists.png",
+    "source": "extra-live-text-gallery-20261022\\drama-menu-intro-20261022\\fixture\\rendered\\drama-introduction-1.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "44b64ea493ecce893eebb7d4abf19ff124e3a4779a44b9a2ff66a0557abb9b47",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-drama-classroom.png",
+    "source": "extra-live-text-gallery-20261022\\drama-menu-intro-20261022\\fixture\\rendered\\drama-introduction-2.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "e8943e1ea70b9a83059462c31b7ca675c7f89a680fb9d1623eeb60aa0fa68ddf",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-sound-menu.png",
+    "source": "extra-live-text-gallery-20261022\\cover-sound-design-20261022\\fixture\\rendered\\sound-booklet-list.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "fa503f6cfbddb043a256b76195e013d01533fbb7b03667f45f4a8c4f3082dd23",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-gallery.png",
+    "source": "extra-live-text-gallery-20261022\\rendered\\gallery-ko-selected.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "9bb9e69d74454be170ca61e887c5bc3076a3021200c7306e9b816dcf2f8f209c",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-novel-menu.png",
+    "source": "extra-live-text-gallery-20261022\\title-toggle-intro-20261022\\fixture\\rendered\\novel-introduction.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "21fde69f863b6bcbc7db1ee1bab0ae0fa79c1d3c33cf66d60293fa51482e16d6",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  },
+  {
+    "path": "current-flowchart.png",
+    "source": "extra-live-text-gallery-20261022\\title-toggle-intro-20261022\\fixture\\rendered\\flowchart-section-0.bmp",
+    "width": 800,
+    "height": 600,
+    "sha256": "81fd43cd773b4961a85e3a97301250fc70fb7ac48718da06babf8541b0765be9",
+    "conversion": "pixel-equivalent PNG; existing verified reference reused"
+  }
+]

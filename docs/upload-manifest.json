@@ -1,0 +1,145 @@
+{
+  "repository": "sirecoymarsh/drakoi-extra-ui",
+  "visibility": "private",
+  "translator_model": "Codex internal",
+  "publication_date": "2026-10-22",
+  "scope": "Extra UI source and render assets; no game engine, archives, audio, saves or credentials",
+  "unchanged_application_sources": [
+    {
+      "path": "source/d3d8.h",
+      "sha256": "e03c863023535cdb80a7adf97f274da6d74c23ec78e20a3cc2447451c572f89b"
+    },
+    {
+      "path": "source/d3d8caps.h",
+      "sha256": "242b785317aece7fe477e82fa4dcd293a7f482452e04256cd0082b08703351a2"
+    },
+    {
+      "path": "source/d3d8types.h",
+      "sha256": "548f06814678d5b4f4fd8a81720c43f1aa4f495d6c3e3f8baa4b4be4cf183169"
+    },
+    {
+      "path": "source/drama_art.inc",
+      "sha256": "669acaf58199d514c60dee71e22d0ebce0b4e36d3528382c59b5dafca2d1fc09"
+    },
+    {
+      "path": "source/drama_subtitles_data.h",
+      "sha256": "2ffd402f66378e1dffd28b4891e1a7bb98af4878a5ed372c978f26fb98ab4732"
+    },
+    {
+      "path": "source/drama_subtitles.inc",
+      "sha256": "e347f41172d486652edb196acf6b51ed5b335fde8aa003b5f4d8adb614764c51"
+    },
+    {
+      "path": "source/drama_titles.inc",
+      "sha256": "5c82af2e583947d002d90ce5f3b5a5afd3891f5a1b0c249d243fe65b3f3a5a43"
+    },
+    {
+      "path": "source/extra07_data.h",
+      "sha256": "b7e3cbfd4070f68d523b3e1b914aa2c152b1ba975675b6695a6c1631e350cb19"
+    },
+    {
+      "path": "source/extra07_player.inc",
+      "sha256": "9457f3023cdd1875013a286123099e64178862f63358b101f42e7e359e30fdd1"
+    },
+    {
+      "path": "source/flowchart.inc",
+      "sha256": "942b857ed33012bc0aa8d16046ee381b3f7773437559d7118776561e4b2906b5"
+    },
+    {
+      "path": "source/gallery_data.h",
+      "sha256": "5b991654386d94f9eb8a778d8b52b23a132f2c544746029266b24e8fe201746a"
+    },
+    {
+      "path": "source/gallery_player.inc",
+      "sha256": "e0dd73c260c0d9a102b940f6c5315b5db7696c8009f8b98c0565abcb446af2d0"
+    },
+    {
+      "path": "source/ko_font_policy_r2e.h",
+      "sha256": "d8bc83ec39e07d139b70a0210319c8088d6cbff14aeae61da4070bca8287f6d6"
+    },
+    {
+      "path": "source/ko_hook_r2e.c",
+      "sha256": "e935f761be100b407de93e256b1fb866c990554c37baffc35859d6f18063d633"
+    },
+    {
+      "path": "source/ko_r2c_ui.c",
+      "sha256": "3026eb3c43ed88e9e2a8e1d9bc7a45b3c54d37ff9e495e58281ff02f885a2397"
+    },
+    {
+      "path": "source/ko_r2c_ui.h",
+      "sha256": "49f1d5b60ce64a265f717564be7ec6b251ac690337b427bb2e8ccf669eb57e10"
+    },
+    {
+      "path": "source/ko_ui_r2i.h",
+      "sha256": "3f11d3881b0ec9bf960cc71fa61d67190cb3ca647e6653b74285c6841a5a6e71"
+    },
+    {
+      "path": "source/legacy_bookmarks.h",
+      "sha256": "a09af69ed9f10324aae529fcfb819dc9db1d9ac2239d19919ef9fac7b9a8b925"
+    },
+    {
+      "path": "source/novel_data.h",
+      "sha256": "24f0681c5497cac92cc05b7897a1245af1373d03dd85bfc9a5d964da5647a642"
+    },
+    {
+      "path": "source/novel_loader.inc",
+      "sha256": "feaee21bdba5ba221d51bcdad91b4a2086d177f712dc851f19b0c2b511ae2746"
+    },
+    {
+      "path": "source/novel_player.inc",
+      "sha256": "d6bc055dc15607a64fdf8f0e5c88b50ae3162fa5c909aa49499ae4ac80970d62"
+    },
+    {
+      "path": "source/sound_data.h",
+      "sha256": "4e23833ed69c578dddb74e4a9488abac6303b71807b6ea03dbfa667e059d939b"
+    },
+    {
+      "path": "source/sound_player.inc",
+      "sha256": "5d639eadc788f0925fc8978cd95076563f00eae9fab15c6c6715d1fbd4a539a8"
+    },
+    {
+      "path": "source/test_backlog_font_policy.c",
+      "sha256": "e191224c01a1145029a9aa41560147f4b42676c0f01030591d38d071d275d691"
+    },
+    {
+      "path": "source/test_ko_r2c_ui.c",
+      "sha256": "e05f4beafafb24f366669b34b0f9febca3d6f550834291883905a3a2aaa31834"
+    },
+    {
+      "path": "source/vocal_cues.h",
+      "sha256": "efbe0ec1b9181d6f8609f77645ae195869d3cd978f1a2f63c4612d31ed70d543"
+    },
+    {
+      "path": "source/vocal_d3d8.inc",
+      "sha256": "0922e4863e5ea365f87fb7b16a86afe04a010509c349df94675b31394bff7a05"
+    },
+    {
+      "path": "source/vocal_ddraw.inc",
+      "sha256": "e54b5af688eae7b38fe823b5be38a7338e846f94847d51b482cf55a8760de869"
+    },
+    {
+      "path": "source/vocal_gdi.inc",
+      "sha256": "9655c20335f67f9c6a106a87a709396ec9f97d9bcf6c43a7ec46ed1651eeb327"
+    },
+    {
+      "path": "source/vocal_probe.c",
+      "sha256": "41792fb4cbe6e3c3207df1b12e1f785bc2a2558a34a060b8fbe4079c7f95dc14"
+    },
+    {
+      "path": "source/vocal_sync.h",
+      "sha256": "3f28fe31e7731094a45d3949e6a10cd81fe85787774432697bab6be76f9caa46"
+    },
+    {
+      "path": "source/vocal_text.inc",
+      "sha256": "483e81fe17dc66d9216402fff707695a5a75bfefe76894440fc1a65f8d6d745c"
+    }
+  ],
+  "existing_runtime_dll_sha256": "b6e943564003e3aeb1f62a8038b0945ca49dcf7f48bf6158b63273375ff5bfe8",
+  "verification": {
+    "existing_ui_results": "Reused: drama-menu-intro-20261022, title-toggle-intro-20261022 and earlier focused checks",
+    "fresh_checkout_build": "PASS: MSVC x86 /W4 /WX; exported tracked files only; DLL SHA-256 b6e943564003e3aeb1f62a8038b0945ca49dcf7f48bf6158b63273375ff5bfe8 matches the installed baseline",
+    "fresh_checkout_menu_render": "PASS: three artwork layouts rendered by --menu-introduction-render. Previous hit-region/audio tests reused; not rerun."
+  },
+  "upload_file_count": 524,
+  "credential_scan": "No credential-pattern matches; game executables, DLLs, archives, audio, saves and settings excluded"
+}
